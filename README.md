@@ -146,7 +146,7 @@ Para nuestro sistema de procesamiento de sensores, la Clean Architecture ofrece 
 En una aplicación que sigue Clean Architecture, la estructura de carpetas refleja la separación de responsabilidades y las capas arquitectónicas. Para nuestro sistema de procesamiento de sensores, una estructura recomendada sería:
 
 ```
-sensor_system/
+src/
 │
 ├── domain/                   # Capa de entidades y reglas de negocio centrales
 │   ├── entities/             # Definiciones de entidades (Sensor, Reading, etc.)
