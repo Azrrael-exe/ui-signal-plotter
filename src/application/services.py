@@ -3,9 +3,15 @@ from src.domain.entities.processors import forecast_next_value
 from src.domain.value_objects import DeviceStatus
 
 
-def add_values_service(component: Component, values: list[Value]):
+def add_values_service(component: Component, values: list[Value]) -> int:
+    updates = 0
     for value in values:
-        component.add_value(value)
+        try:
+            component.add_value(value)
+            updates += 1
+        except ValueError:
+            print(f"Invalid value: {value}")
+    return updates
 
 
 def forecast_value_service(component: Component) -> Value:

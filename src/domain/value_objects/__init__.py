@@ -7,6 +7,13 @@ class Unit(str, Enum):
     RPM = "RPM"
     KW = "KW"
 
+    @staticmethod
+    def get_unit_from_string(value: str) -> "Unit":
+        try:
+            return Unit(value)
+        except ValueError:
+            raise ValueError(f"'{value}' is not a valid Unit value")
+
 
 class DeviceType(str, Enum):
     SENSOR = "sensor"

@@ -1,4 +1,6 @@
 run.app:
-	uvicorn src.infrastructure.app:app --host 0.0.0.0 --port 8000
+	uvicorn src.app:app --host 0.0.0.0 --port 8000
 
+test.unit:
+	python -m pytest --cov=src --cov-report=term-missing
 

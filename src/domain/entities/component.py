@@ -13,6 +13,13 @@ class Value:
     unit: Unit
     timestamp: int = field(default_factory=lambda: int(time.time() * 1000))
 
+    def dump(self) -> dict:
+        return {
+            "value": self.value,
+            "unit": self.unit.value,
+            "timestamp": self.timestamp,
+        }
+
 
 @dataclass
 class Range:
@@ -24,11 +31,10 @@ class Range:
 class Component:
     def __init__(
         self,
-        id: str,
+        id: int,
         name: str,
         description: str,
         type: DeviceType,
-        config_rules: list[Callable],
         unit: Unit,
         range: Range,
         buffer_size: int = 100,
@@ -45,7 +51,7 @@ class Component:
         self.__time_before_disconnect = time_before_disconnect
 
     @property
-    def id(self) -> str:
+    def id(self) -> int:
         return self.__id
 
     @property
@@ -108,3 +114,19 @@ class Component:
         else:
             self.__status = DeviceStatus.ONLINE
         return self.__status
+
+    def dump(self) -> dict:
+        return {
+            "id": self.__id,
+            "name": self.__name,
+            "description": self.__description,
+            "type": self.__type.value,
+            "unit": self.__unit.value,
+            "range": {
+                "min": self.__range.min,
+                "max": self.__range.max,
+                "unit": self.__range.unit.value,
+            },
+            "values": [value.dump() for value in self.__values],
+            "status": self.get_status().value,
+        }
