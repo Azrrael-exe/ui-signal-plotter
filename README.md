@@ -771,3 +771,721 @@ flowchart LR
 ```
 
 Este enfoque de adaptadores garantiza que nuestro sistema mantenga una clara separación de responsabilidades y que el núcleo de la aplicación permanezca aislado de los detalles de implementación externos, siguiendo fielmente los principios de Clean Architecture.
+
+## 5. Operaciones CRUD con HTTP
+
+### Fundamentos de CRUD sobre HTTP
+
+CRUD (Crear, Leer, Actualizar, Eliminar) representa las cuatro operaciones básicas que pueden realizarse en cualquier sistema de almacenamiento persistente. Al construir APIs, estas operaciones se mapean directamente a métodos HTTP, creando un enfoque estandarizado para la manipulación de recursos. Este mapeo es la base de los principios de diseño de APIs RESTful.
+
+#### Mapeo de CRUD a Métodos HTTP
+
+| Operación CRUD | Método HTTP | Propósito |
+|--------------|------------|-------------|
+| **Crear** | POST | Crea un nuevo recurso |
+| **Leer** | GET | Recupera un recurso o colección de recursos |
+| **Actualizar** | PUT/PATCH | Actualiza un recurso existente (completa o parcialmente) |
+| **Eliminar** | DELETE | Elimina un recurso |
+
+Este mapeo proporciona una interfaz consistente e intuitiva para la comunicación cliente-servidor, donde los recursos se identifican mediante URLs y se manipulan a través de métodos HTTP estandarizados.
+
+### Métodos HTTP en Detalle
+
+#### GET (Leer)
+
+El método GET solicita una representación del recurso especificado. Solo debe recuperar datos sin ningún otro efecto.
+
+- **Propósito**: Recuperar un recurso o colección de recursos
+- **Idempotente**: Sí (múltiples solicitudes idénticas devuelven el mismo resultado)
+- **Seguro**: Sí (no modifica recursos)
+- **Cuerpo de la solicitud**: No se utiliza típicamente
+- **Cuerpo de la respuesta**: Contiene el/los recurso(s) solicitado(s)
+
+**Códigos de Estado Comunes:**
+- `200 OK`: Recurso encontrado y devuelto exitosamente
+- `304 Not Modified`: El recurso no ha cambiado desde la última solicitud (cuando se usa caché)
+- `400 Bad Request`: Sintaxis de solicitud inválida
+- `404 Not Found`: Recurso no encontrado
+- `500 Internal Server Error`: Error del servidor
+
+**Casos de uso:**
+- Recuperar un sensor específico por ID: `GET /sensors/123`
+- Recuperar todos los sensores: `GET /sensors`
+- Recuperar datos filtrados: `GET /sensors?type=temperatura&status=activo`
+
+```mermaid
+sequenceDiagram
+    participant Cliente
+    participant Servidor
+    Cliente->>Servidor: GET /sensors/123
+    alt Recurso existe
+        Servidor-->>Cliente: 200 OK + Datos del recurso
+    else Recurso no encontrado
+        Servidor-->>Cliente: 404 Not Found
+    else Error del servidor
+        Servidor-->>Cliente: 500 Internal Server Error
+    end
+```
+
+#### POST (Crear)
+
+El método POST envía una entidad al recurso especificado, a menudo causando un cambio de estado o efectos secundarios en el servidor.
+
+- **Propósito**: Crear un nuevo recurso
+- **Idempotente**: No (múltiples solicitudes idénticas pueden crear múltiples recursos)
+- **Seguro**: No (modifica recursos)
+- **Cuerpo de la solicitud**: Contiene los datos del nuevo recurso
+- **Cuerpo de la respuesta**: Típicamente contiene el recurso creado o una referencia a él
+
+**Códigos de Estado Comunes:**
+- `201 Created`: Recurso creado exitosamente
+- `202 Accepted`: Solicitud aceptada pero procesamiento no completado
+- `400 Bad Request`: Sintaxis o semántica de solicitud inválida
+- `409 Conflict`: La solicitud entra en conflicto con el estado actual del recurso
+- `500 Internal Server Error`: Error del servidor
+
+**Casos de uso:**
+- Crear un nuevo sensor: `POST /sensors`
+- Añadir una lectura a un sensor: `POST /sensors/123/readings`
+- Crear un nuevo digital twin: `POST /digital-twins`
+
+```mermaid
+sequenceDiagram
+    participant Cliente
+    participant Servidor
+    Cliente->>Servidor: POST /sensors (+ Cuerpo de la Solicitud)
+    alt Creación exitosa
+        Servidor-->>Cliente: 201 Created + Datos del recurso
+    else Datos inválidos
+        Servidor-->>Cliente: 400 Bad Request
+    else Conflicto de recursos
+        Servidor-->>Cliente: 409 Conflict
+    else Error del servidor
+        Servidor-->>Cliente: 500 Internal Server Error
+    end
+```
+
+#### PUT (Actualizar - Reemplazo Completo)
+
+El método PUT reemplaza todas las representaciones actuales del recurso objetivo con la carga útil de la solicitud.
+
+- **Propósito**: Reemplazo completo de un recurso existente
+- **Idempotente**: Sí (múltiples solicitudes idénticas tienen el mismo efecto que una sola solicitud)
+- **Seguro**: No (modifica recursos)
+- **Cuerpo de la solicitud**: Contiene el recurso actualizado completo
+- **Cuerpo de la respuesta**: Puede contener el recurso actualizado o estar vacío
+
+**Códigos de Estado Comunes:**
+- `200 OK`: Recurso actualizado exitosamente con cuerpo de respuesta
+- `204 No Content`: Recurso actualizado exitosamente sin cuerpo de respuesta
+- `400 Bad Request`: Sintaxis o semántica de solicitud inválida
+- `404 Not Found`: Recurso a actualizar no encontrado
+- `500 Internal Server Error`: Error del servidor
+
+**Casos de uso:**
+- Actualizar toda la información de un sensor: `PUT /sensors/123`
+- Reemplazar una configuración de digital twin: `PUT /digital-twins/123/configuration`
+
+```mermaid
+sequenceDiagram
+    participant Cliente
+    participant Servidor
+    Cliente->>Servidor: PUT /sensors/123 (+ Recurso Completo)
+    alt Actualización exitosa
+        Servidor-->>Cliente: 200 OK (+ Recurso Actualizado)
+    else Recurso no encontrado
+        Servidor-->>Cliente: 404 Not Found
+    else Datos inválidos
+        Servidor-->>Cliente: 400 Bad Request
+    else Error del servidor
+        Servidor-->>Cliente: 500 Internal Server Error
+    end
+```
+
+#### PATCH (Actualizar - Modificación Parcial)
+
+El método PATCH aplica modificaciones parciales a un recurso.
+
+- **Propósito**: Actualización parcial de un recurso existente
+- **Idempotente**: No garantizado (depende de la implementación)
+- **Seguro**: No (modifica recursos)
+- **Cuerpo de la solicitud**: Contiene solo los cambios a aplicar
+- **Cuerpo de la respuesta**: Puede contener el recurso actualizado o estar vacío
+
+**Códigos de Estado Comunes:**
+- `200 OK`: Recurso actualizado exitosamente con cuerpo de respuesta
+- `204 No Content`: Recurso actualizado exitosamente sin cuerpo de respuesta
+- `400 Bad Request`: Sintaxis o semántica de solicitud inválida
+- `404 Not Found`: Recurso a actualizar no encontrado
+- `422 Unprocessable Entity`: Solicitud semánticamente correcta pero imposible de procesar
+- `500 Internal Server Error`: Error del servidor
+
+**Casos de uso:**
+- Actualizar atributos específicos de un sensor: `PATCH /sensors/123`
+- Modificar estado de digital twin: `PATCH /digital-twins/123`
+- Actualizar parámetros de calibración de un sensor: `PATCH /sensors/123/calibration`
+
+```mermaid
+sequenceDiagram
+    participant Cliente
+    participant Servidor
+    Cliente->>Servidor: PATCH /sensors/123 (+ Actualizaciones Parciales)
+    alt Actualización exitosa
+        Servidor-->>Cliente: 200 OK (+ Recurso Actualizado)
+    else Recurso no encontrado
+        Servidor-->>Cliente: 404 Not Found
+    else Patch inválido
+        Servidor-->>Cliente: 422 Unprocessable Entity
+    else Error del servidor
+        Servidor-->>Cliente: 500 Internal Server Error
+    end
+```
+
+#### DELETE (Eliminar)
+
+El método DELETE elimina el recurso especificado.
+
+- **Propósito**: Eliminar un recurso existente
+- **Idempotente**: Sí (múltiples solicitudes idénticas tienen el mismo efecto que una sola solicitud)
+- **Seguro**: No (modifica recursos)
+- **Cuerpo de la solicitud**: Típicamente vacío
+- **Cuerpo de la respuesta**: Puede estar vacío o contener metadatos sobre la eliminación
+
+**Códigos de Estado Comunes:**
+- `200 OK`: Recurso eliminado exitosamente con cuerpo de respuesta
+- `204 No Content`: Recurso eliminado exitosamente sin cuerpo de respuesta
+- `404 Not Found`: Recurso a eliminar no encontrado
+- `409 Conflict`: La solicitud entra en conflicto con el estado actual (p. ej., no se puede eliminar un recurso con dependencias)
+- `500 Internal Server Error`: Error del servidor
+
+**Casos de uso:**
+- Eliminar un sensor: `DELETE /sensors/123`
+- Eliminar un digital twin: `DELETE /digital-twins/123`
+- Eliminar una lectura específica: `DELETE /readings/456`
+
+```mermaid
+sequenceDiagram
+    participant Cliente
+    participant Servidor
+    Cliente->>Servidor: DELETE /sensors/123
+    alt Eliminación exitosa
+        Servidor-->>Cliente: 204 No Content
+    else Recurso no encontrado
+        Servidor-->>Cliente: 404 Not Found
+    else Conflicto de eliminación
+        Servidor-->>Cliente: 409 Conflict
+    else Error del servidor
+        Servidor-->>Cliente: 500 Internal Server Error
+    end
+```
+
+### Códigos de Estado HTTP
+
+Los códigos de estado HTTP son una parte integral de la especificación HTTP. Indican el resultado de una solicitud HTTP. En el contexto de las operaciones CRUD, proporcionan retroalimentación crucial sobre el éxito o fracaso de la operación solicitada.
+
+#### Códigos de Estado de Éxito (2xx)
+
+- `200 OK`: La solicitud ha sido exitosa. El significado del éxito varía según el método HTTP utilizado.
+- `201 Created`: La solicitud se ha cumplido y ha resultado en la creación de un nuevo recurso.
+- `202 Accepted`: La solicitud ha sido aceptada para procesamiento, pero el procesamiento no se ha completado.
+- `204 No Content`: El servidor procesó con éxito la solicitud, pero no devuelve ningún contenido.
+
+#### Códigos de Error del Cliente (4xx)
+
+- `400 Bad Request`: El servidor no puede o no procesará la solicitud debido a un error del cliente (p. ej., sintaxis de solicitud mal formada).
+- `404 Not Found`: El servidor no puede encontrar el recurso solicitado.
+- `409 Conflict`: La solicitud entra en conflicto con el estado actual del servidor (p. ej., intentar crear un recurso que ya existe).
+- `422 Unprocessable Entity`: La solicitud estaba bien formada pero no se pudo seguir debido a errores semánticos.
+
+#### Códigos de Error del Servidor (5xx)
+
+- `500 Internal Server Error`: El servidor encontró una condición inesperada que le impidió cumplir con la solicitud.
+- `503 Service Unavailable`: El servidor no está listo para manejar la solicitud, a menudo debido a mantenimiento o sobrecarga.
+
+### Mejores Prácticas para Operaciones CRUD
+
+Al implementar operaciones CRUD sobre HTTP en una aplicación Python, considera estas mejores prácticas:
+
+1. **Usar Patrones de URL Consistentes**:
+   - Colecciones de recursos: `/sensors`
+   - Recurso específico: `/sensors/{id}`
+   - Recursos anidados: `/sensors/{id}/readings`
+
+2. **Seleccionar Métodos HTTP Apropiados**:
+   - Usar el método HTTP correcto para cada operación
+   - Evitar usar GET para operaciones que modifican datos
+   - Usar PUT para reemplazos completos y PATCH para actualizaciones parciales
+
+3. **Devolver Códigos de Estado Apropiados**:
+   - Ser específico sobre el éxito o fracaso de las operaciones
+   - Incluir mensajes de error descriptivos con códigos de estado de error
+
+4. **Mantener Idempotencia**:
+   - Asegurar que las operaciones GET, PUT y DELETE sean idempotentes
+   - Diseñar recursos para soportar operaciones idempotentes donde sea posible
+
+5. **Implementar Representaciones de Recursos Adecuadas**:
+   - Usar formatos de datos consistentes (JSON es común en APIs de Python)
+   - Incluir metadatos apropiados con las respuestas
+   - Usar enlaces hipermedia donde sea apropiado (HATEOAS)
+
+6. **Manejar Casos de Error con Elegancia**:
+   - Proporcionar mensajes de error claros
+   - Incluir información suficiente para diagnosticar problemas
+   - Evitar exponer detalles internos sensibles en las respuestas de error
+
+Cuando se implementan correctamente, las operaciones CRUD de HTTP proporcionan una base robusta para construir APIs RESTful escalables y mantenibles para sistemas de procesamiento de datos de sensores.
+
+### Comparación con Otros Diseños de API
+
+| Aspecto | REST (CRUD HTTP) | GraphQL | gRPC |
+|--------|------------------|---------|------|
+| **Protocolo** | HTTP | HTTP | HTTP/2 |
+| **Formato de Datos** | Típicamente JSON/XML | JSON | Protocol Buffers |
+| **Operaciones** | Mapeadas a métodos HTTP | Operaciones de consulta y mutación | Definidas por métodos de servicio |
+| **Identificación de Recursos** | URLs | Estructura de consulta | Nombres de servicio y método |
+| **Fortalezas** | Amplia adopción, simplicidad, sigue estándares HTTP | Consultas flexibles, reducción de sobre-recuperación | Alto rendimiento, tipado fuerte, generación de código |
+| **Cuándo usar para sistemas de sensores** | APIs de propósito general, operaciones CRUD estándar | Requisitos de datos complejos, necesidades de cliente variables | Transmisión de datos de alto rendimiento, actualizaciones de sensores en tiempo real |
+
+Para sistemas de procesamiento de sensores, las operaciones CRUD de HTTP proporcionan un excelente equilibrio de simplicidad, cumplimiento de estándares y flexibilidad. Este enfoque se integra bien con los principios de Clean Architecture descritos anteriormente, ya que la capa HTTP puede implementarse como un adaptador en la capa externa mientras se mantiene la lógica del dominio central independiente del protocolo de comunicación.
+
+## 6. Sistemas Síncronos vs. Asíncronos: HTTP vs. Kafka/MQTT
+
+### Comparación de paradigmas de comunicación
+
+En el diseño de sistemas distribuidos para procesamiento de datos de sensores, la elección del paradigma de comunicación tiene un impacto profundo en la arquitectura, el rendimiento y la escalabilidad. Esta sección analiza las diferencias fundamentales entre sistemas basados en HTTP (síncronos) y sistemas basados en mensajería como Kafka o MQTT (asíncronos).
+
+#### Paradigma síncrono con HTTP
+
+El modelo de comunicación HTTP sigue un patrón de solicitud-respuesta, donde un cliente inicia una solicitud y espera una respuesta inmediata del servidor antes de continuar.
+
+**Características principales**:
+
+- **Comunicación directa**: El cliente conoce exactamente a qué servidor debe conectarse.
+- **Acoplamiento temporal**: Cliente y servidor deben estar disponibles simultáneamente.
+- **Confirmación inmediata**: El cliente recibe confirmación inmediata del resultado de su solicitud.
+- **Modelo de pull**: El cliente solicita activamente información cuando la necesita.
+- **Stateless**: Cada petición contiene toda la información necesaria para ser procesada.
+
+**Arquitectura típica**:
+
+```mermaid
+flowchart LR
+    A[Sensor] -->|HTTP Request| B[API Gateway]
+    B -->|HTTP Request| C[Servicio de Procesamiento]
+    C -->|HTTP Response| B
+    B -->|HTTP Response| A
+    C <-->|Query/Update| D[(Base de Datos)]
+```
+
+En este modelo, cuando un sensor necesita enviar una lectura:
+1. Establece una conexión HTTP con el servidor (API)
+2. Envía los datos en una solicitud
+3. Espera la respuesta que confirma el procesamiento
+4. Procesa la respuesta o maneja errores
+5. Cierra la conexión
+
+**Ventajas**:
+- Modelo simple y ampliamente adoptado
+- Respuesta inmediata sobre el éxito o fracaso de la operación
+- Se integra naturalmente con las APIs RESTful
+- Ideal para operaciones CRUD y consultas puntuales
+
+**Desventajas**:
+- Escalabilidad limitada con alto número de dispositivos
+- Sobrecarga de conexión para comunicaciones frecuentes
+- Mayor consumo de energía (relevante para dispositivos IoT con batería)
+- Posible pérdida de datos si el servidor no está disponible momentáneamente
+
+#### Paradigma asíncrono con Kafka/MQTT
+
+Los sistemas basados en mensajería implementan un modelo de publicación/suscripción (pub/sub) donde los productores de datos envían mensajes a tópicos sin conocer a los consumidores, y los consumidores se suscriben a los tópicos que les interesan.
+
+**Características principales**:
+
+- **Desacoplamiento**: Productores y consumidores no necesitan conocerse entre sí.
+- **Asincronía**: Los mensajes se entregan cuando los consumidores están disponibles.
+- **Modelo de push**: Los datos se envían a los consumidores cuando están disponibles.
+- **Persistencia**: Los mensajes pueden almacenarse hasta que sean procesados.
+- **Escalabilidad**: Permite distribuir la carga entre múltiples consumidores.
+
+**Arquitectura típica**:
+
+```mermaid
+flowchart LR
+    A[Sensor] -->|Publish| B[Broker de Mensajes]
+    B -->|Subscribe| C[Servicio de Procesamiento]
+    B -->|Subscribe| D[Servicio de Analítica]
+    B -->|Subscribe| E[Servicio de Alertas]
+    C <-->|Query/Update| F[(Base de Datos)]
+```
+
+En este modelo, cuando un sensor necesita enviar una lectura:
+1. Se conecta al broker de mensajes (si no está ya conectado)
+2. Publica un mensaje en un tópico específico
+3. Continúa con otras operaciones sin esperar respuesta
+4. Múltiples servicios pueden consumir el mismo mensaje independientemente
+
+**Ventajas**:
+- Alto desacoplamiento entre componentes
+- Mejor rendimiento bajo cargas elevadas
+- Tolerancia a fallos temporales de componentes
+- Escalabilidad natural para múltiples consumidores
+- Menor consumo de energía para dispositivos IoT
+
+**Desventajas**:
+- Mayor complejidad en la implementación y gestión
+- Respuesta no inmediata sobre el procesamiento
+- Posible latencia en el procesamiento de datos
+- Requiere infraestructura adicional (brokers)
+
+### Impacto en la Clean Architecture
+
+En el contexto de Clean Architecture, ambos paradigmas pueden implementarse manteniendo la separación de responsabilidades:
+
+1. **Interfaz HTTP**:
+   - Los controladores HTTP actúan como adaptadores que convierten solicitudes web en llamadas a casos de uso.
+   - La respuesta se genera inmediatamente después de ejecutar el caso de uso.
+   - La arquitectura es más directa y sigue un flujo secuencial.
+
+2. **Interfaz asíncrona (Kafka/MQTT)**:
+   - Adaptadores de mensajería convierten mensajes recibidos en llamadas a casos de uso.
+   - Otros adaptadores publican eventos de dominio como mensajes.
+   - La arquitectura requiere componentes adicionales para gestionar mensajes, pero mantiene las entidades y casos de uso intactos.
+
+**Diagrama conceptual con Clean Architecture**:
+
+```mermaid
+flowchart TD
+    subgraph "Capa de Infraestructura"
+        A[Controlador HTTP] --> |Adaptador| C
+        B[Consumidor de Mensajes] --> |Adaptador| C
+    end
+    
+    subgraph "Capa de Aplicación"
+        C[Casos de Uso]
+    end
+    
+    subgraph "Capa de Dominio"
+        D[Entidades]
+    end
+    
+    C --> D
+    C --> |Publica Eventos| E[Productor de Mensajes]
+    C --> |Respuesta HTTP| A
+```
+
+### Criterios de selección
+
+La elección entre un modelo síncrono (HTTP) o asíncrono (Kafka/MQTT) debe basarse en los requisitos específicos del sistema:
+
+| Criterio | Preferir HTTP si... | Preferir Kafka/MQTT si... |
+|----------|---------------------|---------------------------|
+| **Volumen de datos** | Bajo a moderado | Alto o variable |
+| **Frecuencia de comunicación** | Baja frecuencia | Alta frecuencia |
+| **Número de dispositivos** | Limitado | Grande y escalable |
+| **Consumo de energía** | No crítico | Crítico (dispositivos con batería) |
+| **Latencia** | Requiere respuesta inmediata | Puede tolerar cierta latencia |
+| **Topología de red** | Estable y confiable | Variable o con interrupciones |
+| **Flujo de datos** | Bidireccional con respuestas | Principalmente unidireccional |
+| **Distribución geográfica** | Centralizada | Ampliamente distribuida |
+
+### Soluciones híbridas
+
+En sistemas complejos de procesamiento de sensores, es común implementar arquitecturas híbridas que aprovechen las ventajas de ambos paradigmas:
+
+- **API HTTP para operaciones de configuración y consulta**: Las operaciones administrativas, consultas específicas y configuración de dispositivos utilizan HTTP.
+- **Mensajería para streaming de datos de sensores**: El flujo continuo de lecturas de sensores utiliza protocolos asíncronos como MQTT.
+- **Eventos de dominio a través de mensajería**: Los cambios importantes en el estado del sistema se propagan como eventos a través del broker de mensajes.
+
+Esta combinación ofrece la inmediatez y simplicidad de HTTP cuando es necesaria, junto con la escalabilidad y eficiencia de la mensajería para el procesamiento de grandes volúmenes de datos.
+
+## 7. Protocolo MQTT en Profundidad
+
+### Fundamentos de MQTT
+
+MQTT (Message Queuing Telemetry Transport) es un protocolo de mensajería ligero diseñado específicamente para dispositivos con restricciones y redes con ancho de banda limitado, alta latencia o inestables. Fue creado en 1999 por Andy Stanford-Clark (IBM) y Arlen Nipper (Cirrus Link), y se ha convertido en un estándar para comunicaciones IoT.
+
+#### Principios de diseño
+
+MQTT se basa en varios principios fundamentales que lo hacen ideal para sistemas de sensores e IoT:
+
+1. **Ligereza y eficiencia**: Diseñado para minimizar el consumo de ancho de banda y recursos.
+2. **Modelo publicación/suscripción**: Desacopla emisores y receptores de información.
+3. **Calidad de servicio (QoS)**: Diferentes niveles de garantía en la entrega de mensajes.
+4. **Sesiones persistentes**: Permite a clientes recibir mensajes publicados mientras estaban desconectados.
+5. **Mensajes Last Will and Testament (LWT)**: Notificación a otros clientes cuando un cliente se desconecta abruptamente.
+
+#### Arquitectura MQTT
+
+La arquitectura MQTT se basa en un modelo de broker centralizado:
+
+```mermaid
+flowchart TD
+    subgraph "Publicadores"
+        A[Sensor de Temperatura]
+        B[Sensor de Humedad]
+        C[Actuador]
+    end
+    
+    subgraph "Broker MQTT"
+        D[Broker]
+    end
+    
+    subgraph "Suscriptores"
+        E[Servicio de Procesamiento]
+        F[Aplicación de Monitoreo]
+        G[Sistema de Alertas]
+    end
+    
+    A -->|Publica en topic/temperatura| D
+    B -->|Publica en topic/humedad| D
+    D -->|topic/temperatura| E
+    D -->|topic/temperatura| F
+    D -->|topic/+| G
+    E -->|Publica en topic/comandos| D
+    D -->|topic/comandos| C
+```
+
+#### Elementos principales
+
+1. **Cliente MQTT**: Cualquier dispositivo que ejecute una biblioteca MQTT y se conecte a un broker. Los clientes pueden ser publicadores, suscriptores o ambos.
+
+2. **Broker MQTT**: Servidor central que recibe todos los mensajes de los publicadores y los reenvía a los suscriptores correspondientes.
+
+3. **Tópico (Topic)**: Estructura jerárquica de tipo string que permite organizar mensajes. Ejemplo: `edificio/piso2/sala3/temperatura`.
+
+4. **Mensaje**: Datos enviados a través del broker. Consiste en una carga útil (payload) que puede tener cualquier formato (típicamente JSON para IoT).
+
+5. **Calidad de Servicio (QoS)**:
+   - **QoS 0** (A lo sumo una vez): Sin garantía de entrega. El mensaje se envía una vez y no se verifica su recepción.
+   - **QoS 1** (Al menos una vez): Garantiza que el mensaje llegará, pero puede haber duplicados.
+   - **QoS 2** (Exactamente una vez): Garantiza que el mensaje se entregará exactamente una vez, sin duplicados.
+
+6. **Sesión persistente**: Permite almacenar suscripciones y mensajes para clientes desconectados temporalmente.
+
+### Estructura del protocolo MQTT
+
+#### Tipos de paquetes MQTT
+
+MQTT define varios tipos de paquetes para la comunicación entre clientes y broker:
+
+1. **CONNECT**: Establecimiento de conexión del cliente al broker
+2. **CONNACK**: Reconocimiento de conexión del broker al cliente
+3. **PUBLISH**: Publicación de un mensaje a un tópico
+4. **PUBACK**: Reconocimiento de publicación (para QoS 1)
+5. **PUBREC/PUBREL/PUBCOMP**: Mensajes para QoS 2
+6. **SUBSCRIBE**: Solicitud para suscribirse a tópicos
+7. **SUBACK**: Reconocimiento de suscripción
+8. **UNSUBSCRIBE**: Solicitud para cancelar suscripción
+9. **UNSUBACK**: Reconocimiento de cancelación de suscripción
+10. **PINGREQ/PINGRESP**: Mantener viva la conexión
+11. **DISCONNECT**: Desconexión limpia
+
+#### Formato de tópicos
+
+Los tópicos en MQTT siguen una estructura jerárquica separada por barras (`/`), similar a una ruta de archivo:
+
+- **Ejemplo**: `campus/edificio3/planta2/sala5/sensor1/temperatura`
+
+MQTT permite el uso de comodines en las suscripciones:
+- **`+`**: Comodín de nivel único. Ejemplo: `campus/edificio3/+/sala5/#` coincidiría con cualquier planta.
+- **`#`**: Comodín multinivel (debe estar al final). Ejemplo: `campus/edificio3/#` coincidiría con todos los tópicos bajo edificio3.
+
+Este sistema de tópicos permite una organización flexible y eficiente de la información.
+
+#### Calidad de Servicio en detalle
+
+La elección del nivel de QoS implica un equilibrio entre fiabilidad y recursos:
+
+1. **QoS 0 (At most once)**:
+   - El publicador envía el mensaje y no espera confirmación
+   - No hay retransmisión
+   - Mejor rendimiento pero sin garantías
+   - Ideal para datos frecuentes donde la pérdida ocasional es aceptable
+
+   ```mermaid
+   sequenceDiagram
+       Publisher->>Broker: PUBLISH (QoS 0)
+       Broker->>Subscriber: PUBLISH (QoS 0)
+   ```
+
+2. **QoS 1 (At least once)**:
+   - El publicador almacena el mensaje hasta recibir PUBACK
+   - Reenvía si no hay confirmación en un plazo
+   - Garantiza la entrega pero puede duplicar mensajes
+   - Equilibrio entre fiabilidad y rendimiento
+
+   ```mermaid
+   sequenceDiagram
+       Publisher->>Broker: PUBLISH (QoS 1, ID=1)
+       Broker->>Publisher: PUBACK (ID=1)
+       Broker->>Subscriber: PUBLISH (QoS 1, ID=5)
+       Subscriber->>Broker: PUBACK (ID=5)
+   ```
+
+3. **QoS 2 (Exactly once)**:
+   - Intercambio de cuatro mensajes para garantizar entrega única
+   - Mayor consumo de recursos y menor rendimiento
+   - Garantiza entrega exactamente una vez
+   - Para datos críticos donde los duplicados son problemáticos
+
+   ```mermaid
+   sequenceDiagram
+       Publisher->>Broker: PUBLISH (QoS 2, ID=2)
+       Broker->>Publisher: PUBREC (ID=2)
+       Publisher->>Broker: PUBREL (ID=2)
+       Broker->>Publisher: PUBCOMP (ID=2)
+       
+       Broker->>Subscriber: PUBLISH (QoS 2, ID=6)
+       Subscriber->>Broker: PUBREC (ID=6)
+       Broker->>Subscriber: PUBREL (ID=6)
+       Subscriber->>Broker: PUBCOMP (ID=6)
+   ```
+
+### Características avanzadas
+
+#### Mensajes retenidos (Retained Messages)
+
+Los mensajes retenidos son almacenados por el broker y entregados inmediatamente a nuevos suscriptores:
+
+- Se marcan con un flag "retained" al publicarse
+- Solo se almacena el último mensaje retenido por tópico
+- Útiles para valores de estado o configuración que nuevos clientes necesitan conocer inmediatamente
+
+#### Last Will and Testament (LWT)
+
+LWT permite que un cliente especifique un mensaje que el broker enviará si el cliente se desconecta abruptamente:
+
+- Se configura durante la conexión (CONNECT)
+- Se activa cuando la conexión se cierra sin un mensaje DISCONNECT
+- Útil para notificar estado "offline" a otros componentes del sistema
+
+#### Session persistence
+
+Las sesiones persistentes permiten a un cliente retomar su actividad después de una desconexión:
+
+- El cliente especifica "Clean Session = false" al conectarse
+- El broker almacena suscripciones y mensajes pendientes (QoS 1 y 2)
+- Al reconectarse, el cliente recibe los mensajes perdidos y mantiene sus suscripciones
+
+#### Seguridad en MQTT
+
+MQTT implementa varios mecanismos de seguridad:
+
+1. **Autenticación**: Nombre de usuario y contraseña en el mensaje CONNECT
+2. **TLS/SSL**: Encriptación de la comunicación cliente-broker
+3. **Certificados de cliente**: Para autenticación mutua
+4. **Control de acceso**: Reglas en el broker que determinan qué clientes pueden publicar/suscribirse a qué tópicos
+
+### MQTT en la arquitectura de sensores
+
+#### Beneficios de MQTT para sistemas de sensores
+
+1. **Eficiencia energética**: Ideal para dispositivos con batería por su protocolo ligero
+2. **Bajo ancho de banda**: Overhead mínimo, ideal para redes con restricciones
+3. **Bidireccionalidad**: Permite tanto enviar lecturas como recibir comandos
+4. **Robustez ante redes inestables**: Los niveles de QoS permiten garantizar entrega en redes poco fiables
+5. **Escalabilidad**: Un único broker puede manejar miles de dispositivos
+
+#### Patrones de comunicación con MQTT
+
+1. **Telemetría de sensores**:
+   - Tópico: `sensores/{sensor_id}/lecturas`
+   - Dispositivos publican periódicamente sus lecturas
+   - Servicios backend se suscriben para procesar datos
+
+2. **Configuración y control**:
+   - Tópico: `sensores/{sensor_id}/comandos`
+   - Backend publica comandos de configuración o control
+   - Dispositivos se suscriben para recibir instrucciones
+
+3. **Estado de dispositivos**:
+   - Tópico: `sensores/{sensor_id}/estado`
+   - Dispositivos publican cambios de estado (conectado, modo, batería)
+   - Mensaje retenido para que nuevos clientes conozcan estado actual
+   - LWT para detectar desconexiones inesperadas
+
+4. **Descubrimiento de dispositivos**:
+   - Tópico: `sensores/{sensor_id}/info`
+   - Dispositivos publican información estática (tipo, capacidades)
+   - Mensaje retenido para que sistemas de gestión descubran dispositivos
+
+#### Integración con Clean Architecture
+
+MQTT se adapta bien a la Clean Architecture a través de adaptadores en la capa de infraestructura:
+
+```
+src/
+├── infrastructure/
+│   ├── messaging/
+│   │   ├── mqtt/
+│   │   │   ├── connection.py            # Gestión de conexiones MQTT
+│   │   │   ├── publishers/              # Publicadores MQTT
+│   │   │   │   ├── sensor_publisher.py  # Publica datos de sensores
+│   │   │   │   └── event_publisher.py   # Publica eventos de dominio
+│   │   │   └── subscribers/             # Suscriptores MQTT
+│   │   │       ├── command_subscriber.py # Recibe comandos
+│   │   │       └── data_subscriber.py    # Recibe datos externos
+```
+
+Los adaptadores MQTT:
+1. Convierten entidades y eventos de dominio en mensajes MQTT
+2. Transforman mensajes MQTT recibidos en llamadas a casos de uso
+3. Gestionan aspectos técnicos como QoS, reconexiones, etc.
+
+**Ejemplo conceptual**:
+
+```mermaid
+flowchart TD
+    subgraph "Capa de Dominio"
+        A[Entidad Sensor]
+        B[Entidad Lectura]
+    end
+    
+    subgraph "Capa de Aplicación"
+        C[Caso de Uso: Registrar Lectura]
+    end
+    
+    subgraph "Capa de Adaptadores"
+        D[MQTTSensorReadingSubscriber]
+        E[MQTTEventPublisher]
+    end
+    
+    subgraph "Capa de Infraestructura"
+        F[Cliente MQTT]
+        G[Broker MQTT]
+    end
+    
+    G -->|"sensores/+/lecturas"| F
+    F --> D
+    D --> C
+    C --> B
+    C --> E
+    E --> F
+    F -->|"eventos/sensor/actualizado"| G
+```
+
+### Comparación MQTT vs Kafka
+
+Aunque MQTT y Apache Kafka son tecnologías de mensajería, tienen diferentes enfoques y casos de uso:
+
+| Característica | MQTT | Apache Kafka |
+|---------------|------|--------------|
+| **Enfoque principal** | Dispositivos IoT, conexiones con limitaciones | Procesamiento de flujos de datos a gran escala |
+| **Modelo de mensajería** | Publish/Subscribe con tópicos jerárquicos | Publish/Subscribe con particiones de tópicos |
+| **Escalabilidad** | Miles de clientes ligeros | Procesamiento masivo de datos (TB/día) |
+| **Persistencia** | Limitada (según configuración) | Persistencia robusta y configurable |
+| **Procesamiento** | Simple entrega de mensajes | Capacidades de procesamiento de streams |
+| **Garantías de orden** | No garantiza orden global | Orden garantizada dentro de particiones |
+| **Caso de uso ideal** | Comunicación con dispositivos de campo | Análisis de datos y procesamiento de eventos |
+
+En muchos sistemas de sensores a gran escala, se utiliza un enfoque híbrido:
+- MQTT en el "edge" para comunicación con sensores físicos
+- Kafka en el backend para procesamiento, análisis y distribución de datos
+
+### Conclusión
+
+MQTT es un protocolo esencial en sistemas modernos de sensores e IoT debido a su eficiencia, robustez y modelo de comunicación orientado a dispositivos con restricciones. Al integrarlo correctamente en una arquitectura limpia, se pueden construir sistemas escalables y mantenibles que optimizan el consumo de recursos mientras mantienen la separación de responsabilidades.
+
+La elección entre protocolos síncronos como HTTP y asíncronos como MQTT debe basarse en los requisitos específicos del sistema, considerando factores como volumen de datos, frecuencia de comunicación, restricciones de energía y patrones de distribución. A menudo, la solución óptima combina ambos enfoques para aprovechar sus respectivas ventajas.
