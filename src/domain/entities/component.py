@@ -95,7 +95,10 @@ class Component:
         return list(self.__values)
 
     def get_average(self) -> float:
-        return sum(self.__values) / len(self.__values)
+        try:
+            return sum(self.__values) / len(self.__values)
+        except ZeroDivisionError:
+            return 0
 
     def get_min(self) -> float:
         return min(self.__values)

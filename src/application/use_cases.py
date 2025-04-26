@@ -5,7 +5,11 @@ from src.domain.exceptions import UnitMismatchError
 from src.domain.value_objects import DeviceType, Unit
 
 from .interfaces import ComponentRepository
-from .services import add_values_service, forecast_value_service
+from .services import (
+    add_values_service,
+    forecast_value_service,
+    get_component_values_service,
+)
 
 
 def fan_controller(value: Value) -> Value:
@@ -87,9 +91,9 @@ def add_value_to_component_use_case(
 def get_component_values_use_case(
     component_id: str,
     repository: ComponentRepository,
-) -> list[Value]:
+) -> list[dict]:
     component = repository.get_component_by_id(id=component_id)
-    return [value.dump() for value in component.get_values()]
+    return [value.dump() for value in get_component_values_service(component)]
 
 
 def delete_component_use_case(

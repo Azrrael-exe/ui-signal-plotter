@@ -26,6 +26,7 @@ class UpdateResponse(BaseModel):
 class ValueResponse(BaseModel):
     value: float
     unit: str
+    timestamp: int
 
 
 def get_component_router(repository: ComponentRepository) -> APIRouter:
@@ -112,7 +113,15 @@ def get_component_router(repository: ComponentRepository) -> APIRouter:
     return router
 
 
-def get_app() -> FastAPI:
+def get_app(repository: ComponentRepository = None) -> FastAPI:
     app = FastAPI()
-    app.include_router(get_component_router(repository=MemoryComponentRepository()))
+
+    if repository is None:
+        repository = MemoryComponentRepository()
+
+    app.include_router(get_component_router(repository=repository))
+
+    # Store repository in app state for access in other parts of the application
+    app.state.repository = repository
+
     return app

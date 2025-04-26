@@ -20,3 +20,11 @@ def forecast_value_service(component: Component) -> Value:
 
 def get_component_status_service(component: Component) -> DeviceStatus:
     return component.get_status()
+
+
+def get_component_values_service(component: Component) -> list[Value]:
+    return component.get_values()
+
+
+def get_component_average_service(component: Component) -> float:
+    return component.get_average()
